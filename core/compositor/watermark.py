@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from typing import NamedTuple, Optional
 
-from core.compositor.ffmpeg_tool import resolve_binary
+from core.compositor.ffmpeg_tool import probe_video_dimensions, resolve_binary
 from core.config import resolve_font_path
 
 logger = logging.getLogger(__name__)
@@ -62,19 +62,8 @@ def _build_watermark_text(language: str) -> str:
 
 
 def _get_video_dimensions(input_path: str) -> tuple:
-    try:
-        result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-print_format", "json",
-             "-show_streams", input_path],
-            capture_output=True, text=True, timeout=30,
-        )
-        info = __import__('json').loads(result.stdout)
-        for s in info.get("streams", []):
-            if s.get("codec_type") == "video":
-                return s["width"], s["height"]
-    except Exception:
-        pass
-    return None, None
+    """探测视频宽高；Issue #78：统一走 ffmpeg_tool（ffprobe → ffmpeg 兜底）。"""
+    return probe_video_dimensions(input_path)
 
 
 def _render_watermark_png(

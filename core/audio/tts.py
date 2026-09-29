@@ -12,6 +12,8 @@ from typing import Optional, Tuple
 import edge_tts
 
 from core.async_io import async_open
+from core.compositor.ffmpeg_tool import resolve_binary
+from core.i18n_backend import translate
 
 logger = logging.getLogger(__name__)
 
@@ -171,9 +173,15 @@ class SilentTTSEngine(TTSEngine):
 
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
+        # 统一解析 ffmpeg 路径（Issue #78）：裸 "ffmpeg" 在无系统 ffmpeg 的
+        # Windows 上会让 CreateProcess 抛 [WinError 2]，且错误信息完全不可读
+        ffmpeg = resolve_binary("ffmpeg")
+        if not ffmpeg:
+            raise RuntimeError(translate("error.ffmpeg_missing"))
+
         # 使用 ffmpeg 生成静音音频
         proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y",
+            ffmpeg, "-y",
             "-f", "lavfi",
             "-i", "anullsrc=r=44100:cl=mono",
             "-t", str(duration_sec),

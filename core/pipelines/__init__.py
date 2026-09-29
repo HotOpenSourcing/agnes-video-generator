@@ -9,7 +9,6 @@ import functools
 import json
 import logging
 import os
-import subprocess
 import time
 from abc import ABC, abstractmethod
 from types import SimpleNamespace
@@ -25,6 +24,7 @@ _ENCODING_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
 )
 
 from core.async_io import read_text, write_text
+from core.compositor.ffmpeg_tool import probe_duration, resolve_cmd_binary
 from core.compositor.watermark import add_watermark, detect_language
 from core.config import get_watermark_config
 from core.i18n_backend import translate
@@ -517,21 +517,16 @@ class BasePipeline(ABC):
 
     @staticmethod
     def get_audio_duration(audio_path: str) -> float:
-        """通过 ffprobe 获取音频文件时长（秒），失败返回 0.0。"""
+        """获取音频文件时长（秒），失败返回 0.0。
+
+        Issue #78：改用 ``ffmpeg_tool.probe_duration`` 统一解析可执行文件，
+        ffprobe 缺失时回退 ffmpeg stderr 解析，不再静默降级为 0.0。
+        """
         if not audio_path or not os.path.exists(audio_path):
             return 0.0
         if os.path.getsize(audio_path) == 0:
             return 0.0
-        try:
-            r = subprocess.run(
-                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                 "-of", "csv=p=0", audio_path],
-                stdin=subprocess.DEVNULL,
-                capture_output=True, text=True, timeout=15,
-            )
-            return float(r.stdout.strip())
-        except Exception:
-            return 0.0
+        return probe_duration(audio_path, default=0.0)
 
     async def generate_subtitles_common(
         self,
@@ -947,7 +942,12 @@ class BasePipeline(ABC):
 
     @staticmethod
     async def run_ffmpeg_async(cmd: List[str], timeout: float = 30.0) -> None:
-        """异步执行 ffmpeg 命令（不阻塞事件循环）。等价于 subprocess.run(check=True)。"""
+        """异步执行 ffmpeg 命令（不阻塞事件循环）。等价于 subprocess.run(check=True)。
+
+        Issue #78：命令首元素为 ``"ffmpeg"``/``"ffprobe"`` 时统一解析为真实路径，
+        避免在无系统 ffmpeg 的环境里抛裸 ``[WinError 2]``。
+        """
+        cmd = resolve_cmd_binary(cmd)
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,

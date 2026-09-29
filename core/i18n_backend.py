@@ -247,6 +247,21 @@ CATALOG: Dict[str, Dict[str, str]] = {
         "en": "the Agnes service domain",
     },
 
+    # ── ffmpeg 缺失（core/audio/tts.py::SilentTTSEngine，Issue #78）──
+    "error.ffmpeg_missing": {
+        "zh": (
+            "未找到可用的 ffmpeg 可执行文件，无法生成音频/视频文件。"
+            "请安装 ffmpeg（Windows 可执行 winget install Gyan.FFmpeg）并确保它在 PATH 中，"
+            "或通过环境变量 FFMPEG_BINARY 指定其绝对路径，然后重试任务。"
+        ),
+        "en": (
+            "No usable ffmpeg executable was found, so audio/video files cannot be produced. "
+            "Please install ffmpeg (on Windows: winget install Gyan.FFmpeg), make sure it is on "
+            "your PATH, or point the FFMPEG_BINARY environment variable at its absolute path, "
+            "then retry the task."
+        ),
+    },
+
     # ── API Key 缺失（core/config.py::API_KEY_MISSING_MSG 的替代）──
     "config.api_key_missing": {
         "zh": (

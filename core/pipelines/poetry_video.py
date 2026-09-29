@@ -19,6 +19,7 @@ from core.api.agnes_video import AgnesVideoAPI
 from core.audio.subtitle import SubtitleGenerator
 from core.audio.tts import SilentTTSEngine
 from core.compositor.concatenator import VideoConcatenator
+from core.compositor.ffmpeg_tool import has_audio_stream, probe_duration
 from core.config import DEFAULT_TEXT_MODEL
 from core.pipelines import MultiScenePipeline
 from core.screenwriter import Screenwriter, clean_narration_text
@@ -268,8 +269,6 @@ class PoetryVideoPipeline(MultiScenePipeline):
         可能提前截断（仅前半段有声音、后半段丢失且不抛异常）。
         因此每个场景间加入延迟，并在生成后校验音频时长。
         """
-        import subprocess as _sp
-
         scenes = self._state.scenes
         audio_config = self._state.audio_config
         has_audio = audio_config.enabled
@@ -333,7 +332,7 @@ class PoetryVideoPipeline(MultiScenePipeline):
 
             # 时长校验（仅真实 EdgeTTS 产物）：实际时长不足预期 60% → 删除 + Silent 重生成
             if has_audio:
-                actual_dur = self._probe_duration(audio_path, _sp)
+                actual_dur = self._probe_duration(audio_path)
                 if actual_dur is not None and actual_dur < min_dur * 0.6:
                     logger.warning(
                         f"[Poetry] scene {idx} audio incomplete "
@@ -355,38 +354,22 @@ class PoetryVideoPipeline(MultiScenePipeline):
         return None
 
     @staticmethod
-    def _probe_duration(filepath: str, _sp=None) -> Optional[float]:
-        """ffprobe 获取音频时长（秒），失败返回 None。"""
-        try:
-            if _sp is None:
-                import subprocess as _sp2
-                _sp = _sp2
-            proc = _sp.run(
-                ["ffprobe", "-v", "error", "-show_entries",
-                 "format=duration", "-of", "default=noprint_wrappers=1:nokey=1",
-                 filepath],
-                capture_output=True, text=True, timeout=10,
-            )
-            if proc.returncode == 0 and proc.stdout.strip():
-                return float(proc.stdout.strip())
-        except Exception:
-            pass
-        return None
+    def _probe_duration(filepath: str) -> Optional[float]:
+        """获取音频时长（秒），失败返回 None。
+
+        Issue #78：改走 ``ffmpeg_tool.probe_duration``（ffprobe → ffmpeg 兜底），
+        不再因 ffprobe 缺失而静默返回 None。
+        """
+        val = probe_duration(filepath, default=0.0)
+        return val if val > 0 else None
 
     @staticmethod
     def _has_audio_stream(filepath: str) -> bool:
-        """ffprobe 检测视频文件是否包含音频流（防止复用不完整合成产物）。"""
-        try:
-            import subprocess as _sp
-            proc = _sp.run(
-                ["ffprobe", "-v", "error", "-select_streams", "a",
-                 "-show_entries", "stream=codec_type", "-of", "csv=p=0",
-                 filepath],
-                capture_output=True, text=True, timeout=10,
-            )
-            return "audio" in proc.stdout
-        except Exception:
-            return False
+        """检测视频文件是否包含音频流（防止复用不完整合成产物）。
+
+        Issue #78：改走 ``ffmpeg_tool.has_audio_stream``（ffprobe → ffmpeg 兜底）。
+        """
+        return has_audio_stream(filepath)
 
     # ------------------------------------------------------------------
     # Phase 5: 字幕（逐场景 SRT，定时对齐朗诵）
