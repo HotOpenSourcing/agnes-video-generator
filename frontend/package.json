@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "node -e \"require('fs').rmSync('../static/assets',{recursive:true,force:true})\" && vue-tsc --noEmit && vite build",
+    "dev": "node init && vite",
+    "build": "node init && node -e \"require('fs').rmSync('../static/assets',{recursive:true,force:true})\" && vue-tsc --noEmit && vite build",
     "test": "vitest run",
     "preview": "vite preview"
   },

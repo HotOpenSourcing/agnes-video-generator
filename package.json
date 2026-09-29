@@ -1,7 +1,7 @@
 {
   "name": "free-short-video",
   "version": "0.0.0",
-  "description": "Free AI short-video generator — run the full free-short-video service locally with one command. Text-to-video, image generation, Edge-TTS narration, subtitles, and compositing, all free. Official site: https://video.lichuanyang.top",
+  "description": "Free AI short-video generator \u2014 run the full free-short-video service locally with one command. Text-to-video, image generation, Edge-TTS narration, subtitles, and compositing, all free. Official site: https://video.lichuanyang.top",
   "bin": {
     "free-short-video": "bin/cli.js",
     "fsv": "bin/cli.js"
@@ -10,7 +10,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node bin/cli.js"
+    "start": "node init && node bin/cli.js"
   },
   "keywords": [
     "video",

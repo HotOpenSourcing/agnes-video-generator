@@ -6,6 +6,7 @@ import os
 import re
 from typing import List, Optional
 
+from core.compositor.ffmpeg_tool import resolve_cmd_binary
 from core.pipelines import PipelineShutdown
 from models.task import StepStatus
 from utils.image_normalizer import PAD, normalize_image_async
@@ -52,6 +53,7 @@ async def _run_ffmpeg_async(cmd: List[str], timeout: float = 30.0) -> None:
         RuntimeError: ffmpeg 退出码非 0（等价原 ``check=True`` 语义）。
         asyncio.TimeoutError: 超时。
     """
+    cmd = resolve_cmd_binary(cmd)
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,

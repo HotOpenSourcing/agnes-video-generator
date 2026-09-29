@@ -489,4 +489,40 @@ for name, color in [('test_ref.png', (100,150,200)), ('test_end.png', (200,150,1
 
 ---
 
-*文档版本：v3.5 | 更新日期：2026-09-28 | 变更：新增 v7.0 上游可靠性加固增量回归（U1/U2/U3/U5/U8）+ F3 校验口径更新*
+## 十二、ffmpeg/ffprobe 调用收口回归（增量，Issue #78）
+
+> 新增于 2026-09-29（`core/compositor/ffmpeg_tool.py` 的
+> `resolve_cmd_binary` / `probe_duration` / `has_audio_stream` / `probe_video_dimensions`）。
+> 背景：7 处调用绕过 `resolve_binary()` 用裸命令名，无系统 ffmpeg 时抛
+> `[WinError 2]`（崩溃）或静默降级 0.0/None/False（连 ffmpeg 兜底探测也拿不到）。
+> 单测：`tests/test_ffmpeg_tool.py`。
+
+### 12.1 单测（自动）
+
+| ID | 条目 | 验证要点 |
+|----|------|---------|
+| F1 | `resolve_cmd_binary` 透传 | 首元素非 ffmpeg 系（如 `python`）原样返回；空列表原样返回；不修改入参列表 |
+| F2 | `resolve_cmd_binary` 替换 | 裸 `ffmpeg` / 带路径的 `ffmpeg.exe` → 解析后绝对路径，其余参数顺序不变 |
+| F3 | `resolve_cmd_binary` 失败 | 解析不到可执行文件 → `RuntimeError`，文案为 i18n `error.ffmpeg_missing`（中/英均含 ffmpeg 字样），不再是裸 `[WinError 2]` |
+| F4 | `probe_duration` 三级兜底 | ffprobe 可用取 stdout；ffprobe 为 None 时从 `ffmpeg -i` stderr 的 `Duration:` 行解析（Docker 场景）；两者皆无 → 返回 default；文件不存在 → default |
+| F5 | `has_audio_stream` 兜底 | ffprobe 可用取 stdout；ffprobe 为 None 时匹配 `ffmpeg -i` stderr 的 `Stream #...: Audio:`；两者皆无 → False |
+| F6 | `probe_video_dimensions` 兜底 | ffprobe JSON 取宽高；ffprobe 为 None 时正则解析 stderr 的 `768x1152`；两者皆无 → `(None, None)` |
+| F7 | `SilentTTSEngine` 崩溃点 | 无 ffmpeg → `RuntimeError`（i18n 文案，含安装指引）；有 ffmpeg → 子进程首元素为解析后的绝对路径，产出文件非空、cues 为 None |
+
+### 12.2 行为回归（自动，含在既有场景内）
+
+| ID | 场景 | 验证要点 |
+|----|------|---------|
+| F8 | 既有 mock 回归全绿 | `./scripts/run_mock_regression.sh` 28 项通过（TTS 静音时间轴、尾帧提取/归一化、水印、拼接均走新路径） |
+| F9 | 全量单测 | `.venv/bin/python -m pytest tests/ -q` 无新增失败 |
+
+### 12.3 手工实测（无系统 ffmpeg 环境）
+
+| ID | 场景 | 验证要点 |
+|----|------|---------|
+| F10 | Windows 无 ffmpeg + 关旁白 | 失败信息为「未找到可用的 ffmpeg 可执行文件…」中/英双语，而非 `[WinError 2]` |
+| F11 | Docker（仅 imageio-ffmpeg 内置，无 ffprobe） | 时长/音频流/尺寸探测仍返回真实值（走 ffmpeg stderr 兜底），配音时长校验与数字人拼接不再恒定失败 |
+
+---
+
+*文档版本：v3.6 | 更新日期：2026-09-29 | 变更：新增 ffmpeg/ffprobe 调用收口回归（Issue #78）*

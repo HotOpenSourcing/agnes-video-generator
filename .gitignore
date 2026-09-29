@@ -71,3 +71,5 @@ scripts/_i18n_langswitch.py
 scripts/_i18n_cc.py
 scripts/_i18n_resume.py
 scripts/_i18n_edit.py
+config.bat
+node_modules
